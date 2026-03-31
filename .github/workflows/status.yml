@@ -1,0 +1,38 @@
+name: CI/CD Pipeline Status
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  status-check:
+    name: Pipeline Status
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check workflow status
+      run: |
+        echo "🔍 Checking CI/CD pipeline status..."
+        echo "Branch: ${{ github.ref }}"
+        echo "Event: ${{ github.event_name }}"
+        echo "Commit: ${{ github.sha }}"
+        
+    - name: Display pipeline information
+      run: |
+        echo "📋 Pipeline Information:"
+        echo "- Repository: ${{ github.repository }}"
+        echo "- Actor: ${{ github.actor }}"
+        echo "- Workflow: ${{ github.workflow }}"
+        echo "- Run ID: ${{ github.run_id }}"
+        echo "- Run Number: ${{ github.run_number }}"
+        
+    - name: Environment check
+      run: |
+        echo "🌍 Environment Variables:"
+        echo "- REGISTRY: ${{ env.REGISTRY }}"
+        echo "- IMAGE_NAME: ${{ env.IMAGE_NAME }}"
