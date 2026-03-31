@@ -228,6 +228,57 @@ def index():
     cursor.execute("SELECT * FROM machines")
     machines = cursor.fetchall()
 
+    return render_template("dashboard.html", machines=machines)
+
+@app.route('/classic')
+def classic():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM machines")
+    machines = cursor.fetchall()
+
+    # Mettre à jour le statut et la durée
+    for machine in machines:
+        status = ping_host(machine['ip'])
+        
+        # Détecter les services si la machine est en ligne
+        services = []
+        if status == 'En ligne':
+            services = detecter_processus(machine['ip'])
+        
+        # Récupérer les informations système si c'est la machine locale
+        info_systeme = None
+        if machine['ip'] in ['127.0.0.1', 'localhost']:
+            info_systeme = get_system_info()
+            if info_systeme:
+                info_str = f"CPU: {info_systeme['cpu_percent']:.1f}%, RAM: {info_systeme['memory_percent']:.1f}%, Disque: {info_systeme['disk_usage']:.1f}%"
+            else:
+                info_str = "Informations non disponibles"
+        else:
+            info_str = "Non applicable (machine distante)"
+        
+        # Vérifier si le statut a changé
+        ancien_statut = machine['statut']
+        if ancien_statut != status:
+            maintenant = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            services_str = ', '.join(services) if services else 'Aucun'
+            cursor.execute("""
+                UPDATE machines SET statut=?, dernier_changement=?, services_actifs=?, info_systeme=? WHERE id=?
+            """, (status, maintenant, services_str, info_str, machine['id']))
+        else:
+            # Mettre à jour la durée et les services
+            if machine['dernier_changement']:
+                duree = calculer_duree(machine['dernier_changement'])
+                services_str = ', '.join(services) if services else 'Aucun'
+                cursor.execute("""
+                    UPDATE machines SET duree_statut=?, services_actifs=?, info_systeme=? WHERE id=?
+                """, (duree, services_str, info_str, machine['id']))
+    
+    conn.commit()
+
+    cursor.execute("SELECT * FROM machines")
+    machines = cursor.fetchall()
+
     return render_template("index.html", machines=machines)
 
 @app.route('/add', methods=['POST'])
@@ -327,137 +378,32 @@ def send_message(machine_id):
     
     if "envoyé" in result.lower():
         flash(f'✅ {result} à {machine["nom"]} ({machine["ip"]})', 'success')
-        
-        conn.commit()
+    else:
+        flash(f'❌ {result}', 'error')
+    
+    return redirect('/')
 
-        cursor.execute("SELECT * FROM machines")
-        machines = cursor.fetchall()
+@app.route('/messages')
+def messages():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT me.*, m.nom as machine_nom, m.ip as machine_ip 
+        FROM messages_envoyes me 
+        LEFT JOIN machines m ON me.machine_id = m.id 
+        ORDER BY me.timestamp DESC
+    """)
+    messages = cursor.fetchall()
+    return render_template("messages.html", messages=messages)
 
-        return render_template("index.html", machines=machines)
+@app.route('/delete/<int:machine_id>', methods=['POST'])
+def delete(machine_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM machines WHERE id = ?", (machine_id,))
+    conn.commit()
 
-    @app.route('/add', methods=['POST'])
-    def add():
-        name = request.form['name'].strip()
-        ip = request.form['ip'].strip()
-        
-        # Validation des entrées
-        if not name:
-            flash(' Le nom de la machine ne peut pas être vide', 'error')
-            return redirect('/')
-        
-        if not ip:
-            flash(' L\'adresse IP ne peut pas être vide', 'error')
-            return redirect('/')
-        
-        if not valider_ip(ip):
-            flash(f' L\'adresse IP "{ip}" n\'est pas valide', 'error')
-            return redirect('/')
-        
-        # Vérifier si la machine existe déjà
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM machines WHERE ip = ?", (ip,))
-        if cursor.fetchone():
-            flash(f' Une machine avec l\'IP {ip} existe déjà', 'warning')
-            return redirect('/')
-        
-        # Test de connectivité
-        test_result = ping_host(ip)
-        if test_result in ["IP invalide", "Hôte introuvable", "Hôte inaccessible"]:
-            flash(f' Erreur de connexion à {ip}: {test_result}', 'error')
-            return redirect('/')
-        
-        # Ajouter la machine
-        maintenant = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute("INSERT INTO machines (nom, ip, statut, dernier_changement, duree_statut) VALUES (?, ?, ?, ?, ?)", 
-                      (name, ip, test_result, maintenant, "0 min"))
-        conn.commit()
-        
-        # Message de succès
-        if test_result == "En ligne":
-            flash(f' Machine "{name}" ({ip}) ajoutée avec succès - En ligne', 'success')
-        else:
-            flash(f' Machine "{name}" ({ip}) ajoutée - {test_result}', 'warning')
-        
-        return redirect('/')
+    return redirect('/')
 
-    @app.route('/send_message/<int:machine_id>', methods=['POST'])
-    def send_message(machine_id):
-        message = request.form.get('message', '').strip()
-        methode = request.form.get('methode', 'tcp')
-        port = request.form.get('port', '12345')
-        
-        if not message:
-            flash('❌ Le message ne peut pas être vide', 'error')
-            return redirect('/')
-        
-        # Récupérer les informations de la machine
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM machines WHERE id = ?", (machine_id,))
-        machine = cursor.fetchone()
-        
-        if not machine:
-            flash('❌ Machine non trouvée', 'error')
-            return redirect('/')
-        
-        # Vérifier si la machine est en ligne
-        if machine['statut'] != 'En ligne':
-            flash(f'⚠️ Impossible d\'envoyer un message : {machine["nom"]} ({machine["ip"]}) n\'est pas en ligne', 'warning')
-            return redirect('/')
-        
-        # Envoyer le message
-        try:
-            port = int(port)
-        except ValueError:
-            port = 12345
-        
-        result = envoyer_message(machine['ip'], message, methode)
-        
-        # Enregistrer le message dans la base de données
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        statut_envoi = "Succès" if "envoyé" in result.lower() else "Échec"
-        
-        try:
-            port = int(port)
-        except ValueError:
-            port = 12345
-        
-        cursor.execute("""
-            INSERT INTO messages_envoyes 
-            (machine_id, machine_nom, machine_ip, message, methode, port, timestamp, statut) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (machine_id, machine['nom'], machine['ip'], message, methode, port, timestamp, statut_envoi))
-        conn.commit()
-        
-        if "envoyé" in result.lower():
-            flash(f'✅ {result} à {machine["nom"]} ({machine["ip"]})', 'success')
-        else:
-            flash(f'❌ {result}', 'error')
-        
-        return redirect('/')
-
-    @app.route('/messages')
-    def messages():
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT me.*, m.nom as machine_nom, m.ip as machine_ip 
-            FROM messages_envoyes me 
-            LEFT JOIN machines m ON me.machine_id = m.id 
-            ORDER BY me.timestamp DESC
-        """)
-        messages = cursor.fetchall()
-        return render_template("messages.html", messages=messages)
-
-    @app.route('/delete/<int:machine_id>', methods=['POST'])
-    def delete(machine_id):
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM machines WHERE id = ?", (machine_id,))
-        conn.commit()
-
-        return redirect('/')
-
-    if __name__ == '__main__':
-        app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -46,22 +46,6 @@ cursor.execute('''
     )
 ''')
 
-# Créer la table des téléphones détectés
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS telephones_detectes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ip TEXT,
-        mac TEXT,
-        type_appareil TEXT,
-        fabricant TEXT,
-        services TEXT,
-        confiance TEXT,
-        timestamp TEXT
-    )
-''')
-
-print("Table 'telephones_detectes' créée avec succès")
-
 print("Table 'messages_envoyes' créée avec succès")
 
 # Initialiser les nouvelles colonnes pour les machines existantes
