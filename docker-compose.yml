@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   monitoring-app:
     build: .
@@ -8,10 +6,10 @@ services:
       - "5000:5000"
     volumes:
       - ./data:/app/data
-      - ./monitoring.db:/app/monitoring.db
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
+      - DATABASE_PATH=/app/data/monitoring.db
     restart: unless-stopped
     networks:
       - monitoring-network
@@ -23,10 +21,10 @@ services:
       - "5001:5000"
     volumes:
       - ./data:/app/data
-      - ./monitoring.db:/app/monitoring.db
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
+      - DATABASE_PATH=/app/data/monitoring.db
     restart: unless-stopped
     networks:
       - monitoring-network

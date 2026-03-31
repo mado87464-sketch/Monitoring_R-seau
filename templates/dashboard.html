@@ -252,6 +252,66 @@
             transform: translateY(-3px);
         }
         
+        .btn-delete {
+            background: linear-gradient(135deg, var(--neon-red) 0%, #d63447 100%);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(255, 0, 80, 0.4);
+            margin-top: 10px;
+        }
+        
+        .btn-delete:hover {
+            box-shadow: 0 8px 30px rgba(255, 0, 80, 0.6);
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, #ff0050 0%, #ff1744 100%);
+        }
+        
+        .machine-actions {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .machine-services {
+            font-size: 11px;
+            color: #00ff88;
+            margin: 5px 0;
+            padding: 4px 8px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+        
+        .machine-info {
+            font-size: 11px;
+            color: #00d4ff;
+            margin: 5px 0;
+            padding: 4px 8px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .machine-card {
+            background: linear-gradient(135deg, rgba(22, 33, 62, 0.8) 0%, rgba(15, 52, 96, 0.8) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .machine-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 212, 255, 0.3);
+            border-color: rgba(0, 212, 255, 0.6);
+        }
+        
         .sidebar {
             width: 350px;
             background: linear-gradient(135deg, rgba(22, 33, 62, 0.9) 0%, rgba(15, 52, 96, 0.9) 100%);
@@ -943,26 +1003,26 @@
                     <span class="dashboard-icon">�️</span>
                     <div class="dashboard-number">{{ machines|selectattr('statut', 'equalto', 'En ligne')|list|length }}</div>
                     <div class="dashboard-label">Actives</div>
-                    <span class="dashboard-trend trend-up">↑ {{ ((machines|selectattr('statut', 'equalto', 'En ligne')|list|length / (machines|length * 1.0)) * 100)|round(0) }}%</span>
+                    <span class="dashboard-trend trend-up">↑ {{ ((machines|selectattr('statut', 'equalto', 'En ligne')|list|length) / (machines|length if machines|length > 0 else 1) * 100)|round(0) }}%</span>
                 </div>
                 
                 <div class="dashboard-card">
                     <span class="dashboard-icon">⚠️</span>
                     <div class="dashboard-number">{{ machines|selectattr('statut', 'in', ['Hors ligne', 'Timeout', 'Hôte inaccessible'])|list|length }}</div>
                     <div class="dashboard-label">Problèmes</div>
-                    <span class="dashboard-trend trend-down">↓ {{ ((machines|selectattr('statut', 'in', ['Hors ligne', 'Timeout', 'Hôte inaccessible'])|list|length / (machines|length * 1.0)) * 100)|round(0) }}%</span>
+                    <span class="dashboard-trend trend-down">↓ {{ ((machines|selectattr('statut', 'in', ['Hors ligne', 'Timeout', 'Hôte inaccessible'])|list|length) / (machines|length if machines|length > 0 else 1) * 100)|round(0) }}%</span>
                 </div>
                 
                 <div class="dashboard-card">
                     <span class="dashboard-icon">�</span>
                     <div class="dashboard-number">{{ machines|selectattr('services_actifs', 'ne', 'Aucun')|list|length }}</div>
                     <div class="dashboard-label">Services</div>
-                    <span class="dashboard-trend trend-stable">→ {{ ((machines|selectattr('services_actifs', 'ne', 'Aucun')|list|length / (machines|length * 1.0)) * 100)|round(0) }}%</span>
+                    <span class="dashboard-trend trend-stable">→ {{ ((machines|selectattr('services_actifs', 'ne', 'Aucun')|list|length) / (machines|length if machines|length > 0 else 1) * 100)|round(0) }}%</span>
                 </div>
                 
                 <div class="dashboard-card">
                     <span class="dashboard-icon">📊</span>
-                    <div class="dashboard-number">{{ ((machines|selectattr('statut', 'equalto', 'En ligne')|list|length / (machines|length * 1.0)) * 100)|round(1) }}%</div>
+                    <div class="dashboard-number">{{ ((machines|selectattr('statut', 'equalto', 'En ligne')|list|length) / (machines|length if machines|length > 0 else 1) * 100)|round(1) }}%</div>
                     <div class="dashboard-label">Disponibilité</div>
                     <span class="dashboard-trend trend-stable">→ Stable</span>
                 </div>
@@ -1033,6 +1093,23 @@
                                         ⏱️ Depuis {{ machine['duree_statut'] }}
                                     </div>
                                 {% endif %}
+                                {% if machine['services_actifs'] %}
+                                    <div class="machine-services">
+                                        🔧 {{ machine['services_actifs'][:50] }}{% if machine['services_actifs']|length > 50 %}...{% endif %}
+                                    </div>
+                                {% endif %}
+                                {% if machine['info_systeme'] %}
+                                    <div class="machine-info">
+                                        📊 {{ machine['info_systeme'][:60] }}{% if machine['info_systeme']|length > 60 %}...{% endif %}
+                                    </div>
+                                {% endif %}
+                                <div class="machine-actions">
+                                    <form action="/delete/{{ machine['id'] }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer la machine {{ machine['nom'] }} ?');">
+                                        <button type="submit" class="btn-delete" title="Supprimer la machine">
+                                            🗑️ Supprimer
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         {% endfor %}
                     </div>

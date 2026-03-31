@@ -23,6 +23,9 @@ COPY . .
 # Créer le répertoire pour la base de données
 RUN mkdir -p /app/data
 
+# Initialiser la base de données
+RUN python init_docker_db.py
+
 # Exposer le port
 EXPOSE 5000
 

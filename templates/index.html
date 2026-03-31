@@ -806,6 +806,16 @@
             color: white;
         }
         
+        .status-online-active {
+            background: linear-gradient(135deg, rgba(19,241,252,0.9) 0%, rgba(4,112,220,0.9) 100%);
+            color: white;
+        }
+        
+        .status-online-limited {
+            background: linear-gradient(135deg, rgba(249,212,35,0.9) 0%, rgba(255,78,80,0.9) 100%);
+            color: white;
+        }
+        
         .chart-container {
             background: rgba(255,255,255,0.9);
             backdrop-filter: blur(20px);
@@ -1015,18 +1025,6 @@
                                     <span class="status-badge status-online">✅ En ligne</span>
                                 {% elif machine['statut'] == 'Hors ligne' %}
                                     <span class="status-badge status-offline">❌ Hors ligne</span>
-                                {% elif machine['statut'] == 'Timeout' %}
-                                    <span class="status-badge status-timeout">⏰ Timeout</span>
-                                {% elif machine['statut'] == 'Hôte inaccessible' %}
-                                    <span class="status-badge status-unreachable">🚫 Hôte inaccessible</span>
-                                {% elif machine['statut'] == 'Hôte introuvable' %}
-                                    <span class="status-badge status-unknown-host">🔍 Hôte introuvable</span>
-                                {% elif machine['statut'] == 'IP invalide' %}
-                                    <span class="status-badge status-invalid-ip">❌ IP invalide</span>
-                                {% elif machine['statut'].startswith('Erreur:') %}
-                                    <span class="status-badge status-error">⚠️ {{ machine['statut'] }}</span>
-                                {% else %}
-                                    <span class="status-badge status-unknown">❓ {{ machine['statut'] }}</span>
                                 {% endif %}
                             </div>
                             {% if machine['duree_statut'] %}
@@ -1054,19 +1052,6 @@
                             <!-- Informations système -->
                             {% if machine['info_systeme'] and machine['info_systeme'] != 'Non applicable (machine distante)' %}
                                 <div class="system-info-section">
-                                    <div class="system-info-title">💻 Informations système</div>
-                                    <div class="system-info-content">{{ machine['info_systeme'] }}</div>
-                                </div>
-                            {% endif %}
-                            
-                            <!-- Formulaire d'envoi de message -->
-                            {% if machine['statut'] == 'En ligne' %}
-                                <div class="message-form">
-                                    <form method="POST" action="/send_message/{{ machine['id'] }}">
-                                        <textarea class="message-input" name="message" placeholder="💬 Tapez votre message ici..." required></textarea>
-                                        <div class="message-options">
-                                            <div class="message-option">
-                                                <select name="methode">
                                                     <option value="tcp">🔌 TCP</option>
                                                     <option value="udp">📡 UDP</option>
                                                     <option value="http">🌍 HTTP</option>

@@ -16,8 +16,16 @@ app.secret_key = 'votre_cle_secrete_ici'
 
 # Connexion à la base de données
 def get_db_connection():
-    conn = sqlite3.connect('monitoring.db')
+    # Utiliser le chemin de la base de données depuis les variables d'environnement ou chemin par défaut
+    db_path = os.environ.get('DATABASE_PATH', '/app/data/monitoring.db')
+    conn = sqlite3.connect(db_path, timeout=30.0)  # Timeout augmenté à 30 secondes
     conn.row_factory = sqlite3.Row
+    # Activer WAL mode pour éviter les conflits
+    conn.execute('PRAGMA journal_mode=WAL')
+    # Activer les foreign keys
+    conn.execute('PRAGMA foreign_keys=ON')
+    # Désactiver le mode synchrone pour éviter les blocages
+    conn.execute('PRAGMA synchronous=NORMAL')
     return conn
 
 # Calculer la durée depuis le dernier changement de statut
@@ -51,10 +59,11 @@ def ping_host(ip):
         if not valider_ip(ip):
             return "IP invalide"
         
-        output = subprocess.run(["ping", "-n", "1", ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+        # Utiliser la syntaxe Linux pour le ping (conteneur Docker) avec timeout plus court
+        output = subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=2)
         
         if output.returncode == 0:
-            return "En ligne"
+            return "En ligne"  # Si le ping répond, la machine est en ligne
         else:
             # Analyser la sortie pour des messages d'erreur spécifiques
             stderr_text = output.stderr.decode('utf-8', errors='ignore').lower()
@@ -62,16 +71,45 @@ def ping_host(ip):
             
             if "destination host unreachable" in stderr_text or "destination host unreachable" in stdout_text:
                 return "Hôte inaccessible"
-            elif "request timed out" in stderr_text or "request timed out" in stdout_text:
+            elif "request timed out" in stderr_text or "request timed out" in stdout_text or "100% packet loss" in stdout_text:
                 return "Timeout"
-            elif "could not find host" in stderr_text or "could not find host" in stdout_text:
+            elif "name or service not known" in stderr_text or "name or service not known" in stdout_text:
                 return "Hôte introuvable"
             else:
                 return "Hors ligne"
     except subprocess.TimeoutExpired:
         return "Timeout"
     except Exception as e:
-        return f"Erreur: {str(e)[:50]}"
+        return f"Erreur: {str(e)[:30]}"
+
+# Vérification avancée de connectivité (test de port)
+def verifier_connectivite_reelle(ip, port=80, timeout=3):
+    """Vérifie si la machine répond réellement aux connexions"""
+    try:
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((ip, port))
+        sock.close()
+        
+        if result == 0:
+            return True  # La machine répond réellement
+        else:
+            return False # Ne répond pas au port testé
+    except:
+        return False
+
+# Fonction combinée pour déterminer l'état réel
+def etat_reel_machine(ip):
+    """Détermine si la machine est en ligne ou pas"""
+    ping_result = ping_host(ip)
+    
+    if ping_result == "En ligne":
+        return "En ligne"
+    elif ping_result in ["Timeout", "Hôte inaccessible", "Hôte introuvable", "Hors ligne"]:
+        return "Hors ligne"
+    else:
+        return ping_result  # Conserver les erreurs spécifiques
 
 # Détecter les processus et services en cours d'exécution
 def detecter_processus(ip):
@@ -119,7 +157,12 @@ def get_system_info():
             'disk_usage': psutil.disk_usage('/').percent,
             'boot_time': datetime.fromtimestamp(psutil.boot_time()).strftime('%Y-%m-%d %H:%M:%S'),
             'network_connections': len(psutil.net_connections()),
-            'process_count': len(psutil.pids())
+            'process_count': len(psutil.pids()),
+            'cpu_count': psutil.cpu_count(),
+            'memory_total': round(psutil.virtual_memory().total / (1024**3), 2),  # GB
+            'memory_used': round(psutil.virtual_memory().used / (1024**3), 2),   # GB
+            'disk_total': round(psutil.disk_usage('/').total / (1024**3), 2),  # GB
+            'disk_used': round(psutil.disk_usage('/').used / (1024**3), 2),     # GB
         }
         return info
     except:
@@ -188,11 +231,11 @@ def index():
 
     # Mettre à jour le statut et la durée
     for machine in machines:
-        status = ping_host(machine['ip'])
+        status = etat_reel_machine(machine['ip'])
         
         # Détecter les services si la machine est en ligne
         services = []
-        if status == 'En ligne':
+        if 'En ligne' in status:
             services = detecter_processus(machine['ip'])
         
         # Récupérer les informations système si c'est la machine locale
@@ -200,7 +243,7 @@ def index():
         if machine['ip'] in ['127.0.0.1', 'localhost']:
             info_systeme = get_system_info()
             if info_systeme:
-                info_str = f"CPU: {info_systeme['cpu_percent']:.1f}%, RAM: {info_systeme['memory_percent']:.1f}%, Disque: {info_systeme['disk_usage']:.1f}%"
+                info_str = f"CPU: {info_systeme['cpu_percent']:.1f}% ({info_systeme['cpu_count']} cœurs), RAM: {info_systeme['memory_percent']:.1f}% ({info_systeme['memory_used']}/{info_systeme['memory_total']}GB), Disque: {info_systeme['disk_usage']:.1f}% ({info_systeme['disk_used']}/{info_systeme['disk_total']}GB), Processus: {info_systeme['process_count']}, Connexions: {info_systeme['network_connections']}"
             else:
                 info_str = "Informations non disponibles"
         else:
@@ -228,7 +271,7 @@ def index():
     cursor.execute("SELECT * FROM machines")
     machines = cursor.fetchall()
 
-    return render_template("dashboard.html", machines=machines)
+    return render_template("index.html", machines=machines)
 
 @app.route('/classic')
 def classic():
@@ -239,11 +282,11 @@ def classic():
 
     # Mettre à jour le statut et la durée
     for machine in machines:
-        status = ping_host(machine['ip'])
+        status = etat_reel_machine(machine['ip'])
         
         # Détecter les services si la machine est en ligne
         services = []
-        if status == 'En ligne':
+        if 'En ligne' in status:
             services = detecter_processus(machine['ip'])
         
         # Récupérer les informations système si c'est la machine locale
@@ -251,7 +294,7 @@ def classic():
         if machine['ip'] in ['127.0.0.1', 'localhost']:
             info_systeme = get_system_info()
             if info_systeme:
-                info_str = f"CPU: {info_systeme['cpu_percent']:.1f}%, RAM: {info_systeme['memory_percent']:.1f}%, Disque: {info_systeme['disk_usage']:.1f}%"
+                info_str = f"CPU: {info_systeme['cpu_percent']:.1f}% ({info_systeme['cpu_count']} cœurs), RAM: {info_systeme['memory_percent']:.1f}% ({info_systeme['memory_used']}/{info_systeme['memory_total']}GB), Disque: {info_systeme['disk_usage']:.1f}% ({info_systeme['disk_used']}/{info_systeme['disk_total']}GB), Processus: {info_systeme['process_count']}, Connexions: {info_systeme['network_connections']}"
             else:
                 info_str = "Informations non disponibles"
         else:
@@ -299,31 +342,83 @@ def add():
         flash(f' L\'adresse IP "{ip}" n\'est pas valide', 'error')
         return redirect('/')
     
-    # Vérifier si la machine existe déjà
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM machines WHERE ip = ?", (ip,))
-    if cursor.fetchone():
-        flash(f' Une machine avec l\'IP {ip} existe déjà', 'warning')
-        return redirect('/')
+    try:
+        # Vérifier si la machine existe déjà
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM machines WHERE ip = ?", (ip,))
+        if cursor.fetchone():
+            flash(f' Une machine avec l\'IP {ip} existe déjà', 'warning')
+            conn.close()
+            return redirect('/')
+        
+        # Test de connectivité
+        test_result = etat_reel_machine(ip)
+        if test_result in ["IP invalide", "Hôte introuvable", "Hôte inaccessible"]:
+            flash(f' Erreur de connexion à {ip}: {test_result}', 'error')
+            conn.close()
+            return redirect('/')
+        
+        # Ajouter la machine
+        maintenant = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute("INSERT INTO machines (nom, ip, statut, dernier_changement, duree_statut) VALUES (?, ?, ?, ?, ?)", 
+                      (name, ip, test_result, maintenant, "0 min"))
+        conn.commit()
+        
+        # Message de succès
+        if test_result == "En ligne":
+            flash(f' Machine "{name}" ({ip}) ajoutée avec succès - En ligne', 'success')
+        else:
+            flash(f' Machine "{name}" ({ip}) ajoutée - {test_result}', 'warning')
+        
+    except sqlite3.Error as e:
+        flash(f' Erreur de base de données: {str(e)}', 'error')
+    except Exception as e:
+        flash(f' Erreur inattendue: {str(e)}', 'error')
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
     
-    # Test de connectivité
-    test_result = ping_host(ip)
-    if test_result in ["IP invalide", "Hôte introuvable", "Hôte inaccessible"]:
-        flash(f' Erreur de connexion à {ip}: {test_result}', 'error')
-        return redirect('/')
-    
-    # Ajouter la machine
-    maintenant = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute("INSERT INTO machines (nom, ip, statut, dernier_changement, duree_statut) VALUES (?, ?, ?, ?, ?)", 
-                  (name, ip, test_result, maintenant, "0 min"))
-    conn.commit()
-    
-    # Message de succès
-    if test_result == "En ligne":
-        flash(f' Machine "{name}" ({ip}) ajoutée avec succès - En ligne', 'success')
-    else:
-        flash(f' Machine "{name}" ({ip}) ajoutée - {test_result}', 'warning')
+    return redirect('/')
+
+@app.route('/delete/<int:machine_id>', methods=['POST'])
+def delete_machine(machine_id):
+    conn = None
+    try:
+        # Vérifier si la machine existe
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT nom, ip FROM machines WHERE id = ?", (machine_id,))
+        machine = cursor.fetchone()
+        
+        if not machine:
+            flash('❌ Machine introuvable', 'error')
+            return redirect('/')
+        
+        # Supprimer les messages associés (avec transaction)
+        cursor.execute("DELETE FROM messages_envoyes WHERE machine_id = ?", (machine_id,))
+        
+        # Supprimer la machine
+        cursor.execute("DELETE FROM machines WHERE id = ?", (machine_id,))
+        
+        # Commit de la transaction
+        conn.commit()
+        
+        flash(f'✅ Machine "{machine["nom"]}" ({machine["ip"]}) supprimée avec succès', 'success')
+        
+    except sqlite3.Error as e:
+        if conn:
+            conn.rollback()
+        flash(f'❌ Erreur de base de données: {str(e)}', 'error')
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        flash(f'❌ Erreur inattendue: {str(e)}', 'error')
+    finally:
+        if conn:
+            conn.close()
     
     return redirect('/')
 
