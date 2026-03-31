@@ -1,19 +1,40 @@
 version: '3.8'
 
 services:
-  web:
+  monitoring-app:
     build: .
     container_name: monitoring_app
     ports:
       - "5000:5000"
-    depends_on:
-      - db
-
-  db:
-    image: mysql:5.7
-    container_name: monitoring_db
+    volumes:
+      - ./data:/app/data
+      - ./monitoring.db:/app/monitoring.db
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: monitoring
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  monitoring-app-secure:
+    build: .
+    container_name: monitoring_app_secure
     ports:
-      - "3306:3306"
+      - "5001:5000"
+    volumes:
+      - ./data:/app/data
+      - ./monitoring.db:/app/monitoring.db
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+networks:
+  monitoring-network:
+    driver: bridge
+
+volumes:
+  monitoring-data:
+    driver: local
