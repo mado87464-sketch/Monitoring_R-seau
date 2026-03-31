@@ -1,164 +1,159 @@
-# Monitoring Réseau
+# 🖥️ Monitoring Réseau
 
-Une application Flask de monitoring réseau avec dashboard moderne et design néon.
+Application de monitoring réseau avec détection de connectivité en temps réel utilisant Flask et Docker.
 
-## 🚀 Démarrage rapide avec Docker (recommandé)
+## 🚀 Démarrage rapide
 
+### Avec Docker (Recommandé)
+
+1. **Clonez le dépôt :**
 ```bash
-# Cloner et lancer avec Docker Compose
-git clone https://github.com/VOTRE_NOM/monitoring-reseau.git
-cd monitoring-reseau
-docker-compose up -d
-
-# Accès :
-# Dashboard moderne : http://localhost:5000
-# Version sécurisée : http://localhost:5001
+git clone https://github.com/mado87464-sketch/Monitoring_R-seau.git
+cd Monitoring_R-seau
 ```
 
-## Fonctionnalités
-
-- 🖥️ **Dashboard moderne** avec design néon dark
-- 📊 **Métriques en temps réel** des machines du réseau
-- 🔍 **Détection automatique** des services et ports
-- 📡 **Envoi de messages** via TCP/UDP/HTTP
-- 📈 **Graphiques visualisés** de l'état du réseau
-- 🔄 **Auto-rafraîchissement** toutes les 30 secondes
-- 📱 **Design responsive** avec layout latéral
-- 🐳 **Support Docker** complet
-
-## Captures d'écran
-
-### Dashboard Moderne
-![Dashboard](https://via.placeholder.com/800x400/1a1a2e/00d4ff?text=Dashboard+Moderne)
-
-### Vue Classique
-![Vue Classique](https://via.placeholder.com/800x400/ffffff/667eea?text=Vue+Classique)
-
-## Installation
-
-### Option 1 : Docker (recommandé)
+2. **Démarrez avec Docker Compose :**
 ```bash
 docker-compose up -d
 ```
 
-### Option 2 : Manuel
-1. **Cloner le dépôt**
-   ```bash
-   git clone https://github.com/VOTRE_NOM/monitoring-reseau.git
-   cd monitoring-reseau
-   ```
+3. **Accédez à l'application :**
+- 🌐 **Interface web** : http://localhost:5002
+- 📊 **Monitoring** en temps réel des machines
 
-2. **Installer les dépendances**
-   ```bash
-   pip install flask psutil requests
-   ```
+### Avec Docker Hub
 
-3. **Initialiser la base de données**
-   ```bash
-   python init_db.py
-   ```
+L'image est disponible sur Docker Hub :
 
-4. **Lancer l'application**
-   ```bash
-   python app.py
-   ```
-
-5. **Accéder à l'application**
-   - Dashboard moderne : http://127.0.0.1:5000/
-   - Vue classique : http://127.0.0.1:5000/classic
-
-## 🐳 Docker
-
-L'application est entièrement conteneurisée avec :
-
-- **Dockerfile** optimisé pour la production
-- **Docker Compose** avec 2 services
-- **Volumes persistants** pour les données
-- **Réseaux isolés** pour la sécurité
-
-[Voir la documentation Docker complète](DOCKER.md)
-
-## Utilisation
-
-### Ajouter une machine
-1. Remplir le nom et l'adresse IP
-2. Cliquer sur "Ajouter"
-3. L'application testera automatiquement la connectivité
-
-### Envoyer un message
-1. Sélectionner une machine en ligne
-2. Choisir le protocole (TCP/UDP/HTTP)
-3. Taper votre message et envoyer
-
-### Voir les métriques
-- Machines actives
-- Problèmes détectés
-- Services en cours d'exécution
-- Taux de disponibilité
-
-## Technologies
-
-- **Backend** : Flask (Python)
-- **Frontend** : HTML5, CSS3, JavaScript
-- **Base de données** : SQLite
-- **Monitoring** : Ping, scan de ports
-- **Design** : Glassmorphism néon, animations CSS3
-- **Conteneurisation** : Docker, Docker Compose
-
-## Structure du projet
-
-```
-monitoring-reseau/
-├── app.py              # Application Flask principale
-├── init_db.py          # Initialisation de la BDD
-├── update_db.py        # Mises à jour du schéma
-├── Dockerfile          # Configuration Docker
-├── docker-compose.yml  # Orchestration Docker
-├── requirements.txt    # Dépendances Python
-├── templates/
-│   ├── dashboard.html  # Dashboard moderne
-│   ├── index.html      # Vue classique
-│   └── messages.html   # Historique des messages
-├── monitoring.db       # Base de données SQLite
-├── README.md           # Ce fichier
-└── DOCKER.md          # Documentation Docker
+```bash
+docker pull mado87464/monitoring-reseau:latest
+docker run -d -p 5002:5000 --name monitoring-app mado87464/monitoring-reseau:latest
 ```
 
-## API Endpoints
+## 📋 Fonctionnalités
 
-- `GET /` - Dashboard moderne
-- `GET /classic` - Vue classique
-- `GET /messages` - Historique des messages
-- `POST /add` - Ajouter une machine
-- `POST /send_message/<id>` - Envoyer un message
-- `POST /delete/<id>` - Supprimer une machine
+- ✅ **Détection de connectivité** avec ping simple
+- ✅ **États en temps réel** : En ligne / Hors ligne
+- ✅ **Interface web** moderne et responsive
+- ✅ **Base de données** SQLite pour persistance
+- ✅ **Support Docker** pour déploiement facile
+- ✅ **Monitoring** de plusieurs machines simultanément
+- ✅ **Messages** UDP/TCP/HTTP vers machines
+- ✅ **Suppression** de machines
+- ✅ **Informations système** détaillées
 
-## Configuration
+## 🐳 Architecture Docker
 
-L'application utilise une configuration par défaut :
-- Port : 5000
-- Hôte : 0.0.0.0 (accessible depuis le réseau)
-- Mode debug : Activé
+### Services
+- **monitoring-app** : Application Flask (port 5002)
+- **Base de données** : SQLite persistante
+- **Réseau** : Isolé pour sécurité
 
-## Contribuer
+### Volumes
+- `./data:/app/data` : Persistance des données
 
-1. Forker le projet
+### Ports
+- **5002** : Interface web
+
+## 🔧 Configuration
+
+### Variables d'environnement
+- `DATABASE_PATH` : Chemin de la base de données (défaut : `/app/data/monitoring.db`)
+
+### Ports personnalisables
+Modifiez `docker-compose.yml` pour changer les ports :
+```yaml
+ports:
+  - "VOTRE_PORT:5000"
+```
+
+## 📊 Utilisation
+
+1. **Ajoutez une machine :**
+   - Nom : Identifiant de la machine
+   - IP : Adresse IP à surveiller
+
+2. **Vérifiez le statut :**
+   - 🟢 **En ligne** : Machine répond au ping
+   - 🔴 **Hors ligne** : Machine inaccessible
+
+3. **Actions disponibles :**
+   - 📤 Envoyer des messages
+   - 🗑️ Supprimer des machines
+   - 🔄 Actualiser en temps réel
+
+## 🛠️ Développement
+
+### Structure du projet
+```
+Monitoring_R-seau/
+├── app.py                 # Application Flask principale
+├── Dockerfile             # Configuration Docker
+├── docker-compose.yml     # Services multi-conteneurs
+├── requirements.txt       # Dépendances Python
+├── init_docker_db.py    # Initialisation BDD Docker
+├── templates/           # Templates HTML
+│   ├── index.html      # Interface principale
+│   └── dashboard.html # Template alternatif
+├── data/               # Base de données SQLite
+└── README.md          # Documentation
+```
+
+### Lancer en développement
+```bash
+# Installation dépendances
+pip install -r requirements.txt
+
+# Lancement application
+python app.py
+```
+
+## 📝 API
+
+### Endpoints
+- `GET /` : Interface principale
+- `GET /classic` : Vue classique
+- `POST /add` : Ajouter une machine
+- `POST /delete/<id>` : Supprimer une machine
+- `POST /send_message/<id>` : Envoyer un message
+
+## 🔒 Sécurité
+
+- **Conteneur isolé** : Pas d'accès root
+- **Réseau dédié** : Communication contrôlée
+- **Base de données locale** : Pas d'exposition externe
+
+## 🐛 Dépannage
+
+### Problèmes courants
+1. **Port déjà utilisé** : Changez le port dans `docker-compose.yml`
+2. **Permission refusée** : Vérifiez les droits sur le dossier `data/`
+3. **Machine inaccessible** : Vérifiez la configuration réseau
+
+### Logs Docker
+```bash
+docker-compose logs -f
+```
+
+## 🤝 Contribuer
+
+1. Fork le projet
 2. Créer une branche (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commiter les changements (`git commit -am 'Ajouter nouvelle fonctionnalité'`)
-4. Pusher sur la branche (`git push origin feature/nouvelle-fonctionnalite`)
+3. Commiter (`git commit -am 'Ajout nouvelle fonctionnalité'`)
+4. Pusher (`git push origin feature/nouvelle-fonctionnalite`)
 5. Créer une Pull Request
 
-## Licence
+## 📄 Licence
 
 Ce projet est sous licence MIT.
 
-## Auteur
+## 🙏 Remerciements
 
-[VOTRE NOM] - [VOTRE EMAIL]
+- Flask : Framework web Python
+- Docker : Conteneurisation
+- SQLite : Base de données légère
+- psutil : Informations système
 
-## Remerciements
+---
 
-- Flask pour le framework web
-- Bootstrap pour l'inspiration design
-- La communauté Python pour les excellentes bibliothèques
-- Docker pour la conteneurisation
+**Développé avec ❤️ par [mado87464-sketch](https://github.com/mado87464-sketch)**

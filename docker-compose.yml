@@ -1,21 +1,28 @@
+version: '3.8'
+
 services:
   monitoring-app:
-    build: .
+    image: mado87464/monitoring-reseau:latest
     container_name: monitoring_app
     ports:
-      - "5000:5000"
+      - "5002:5000"
     volumes:
       - ./data:/app/data
     environment:
-      - FLASK_ENV=production
-      - FLASK_APP=app.py
       - DATABASE_PATH=/app/data/monitoring.db
+      - FLASK_ENV=production
     restart: unless-stopped
     networks:
       - monitoring-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   monitoring-app-secure:
-    build: .
+    image: mado87464/monitoring-reseau:latest
     container_name: monitoring_app_secure
     ports:
       - "5001:5000"
