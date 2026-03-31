@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS machines (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100),
+    ip VARCHAR(100),
+    statut VARCHAR(50)
+);
